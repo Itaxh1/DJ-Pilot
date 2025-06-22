@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listen to Stream - Live Audio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .room-id {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 1.3em;
+            font-weight: bold;
+            margin: 15px 0;
+            display: inline-block;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .card h3 {
+            margin-bottom: 25px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-size: 1.4rem;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin: 12px 0;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-mute {
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+            width: auto;
+            padding: 12px 24px;
+            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+        }
+        
+        .btn-mute:hover {
+            box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .btn-secondary:hover {
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+        }
+        
+        .status {
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            font-weight: 500;
+            border-left: 4px solid;
+        }
+        
+        .status.success {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            border-left-color: #28a745;
+        }
+        
+        .status.error {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+            border-left-color: #dc3545;
+        }
+        
+        .status.warning {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            color: #856404;
+            border-left-color: #ffc107;
+        }
+        
+        .status.info {
+            background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+            color: #0c5460;
+            border-left-color: #17a2b8;
+        }
+        
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 20px 0;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .live-dot {
+            width: 10px;
+            height: 10px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin: 25px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4facfe;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .volume-control {
+            margin: 25px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .volume-control label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .volume-slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #e9ecef;
+            outline: none;
+            -webkit-appearance: none;
+            margin: 10px 0;
+        }
+        
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(79, 172, 254, 0.3);
+        }
+        
+        .volume-display {
+            text-align: center;
+            font-weight: 600;
+            color: #4facfe;
+            margin-top: 8px;
+        }
+        
+        .connection-info {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border: 1px solid #90caf9;
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .connection-info strong {
+            color: #1565c0;
+        }
+        
+        .tips {
+            background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+            border: 1px solid #a5d6a7;
+            color: #2e7d32;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .tips h4 {
+            margin-bottom: 12px;
+            color: #1b5e20;
+        }
+        
+        .tips ul {
+            margin-left: 20px;
+        }
+        
+        .tips li {
+            margin: 8px 0;
+            line-height: 1.4;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎧 Listen to Stream</h1>
+            <div class="room-id" id="roomDisplay">Room: LOADING...</div>
+        </div>
+        
+        <div class="card">
+            <h3>🔊 Audio Player</h3>
+            
+            <div id="connectionStatus">
+                <div class="connection-status">
+                    <div class="spinner"></div>
+                    <span style="font-weight: 600;">Connecting to room...</span>
+                </div>
+            </div>
+            
+            <div id="waitingForHost" style="display: none;">
+                <div class="status info">
+                    <strong>Waiting for host to start streaming...</strong><br>
+                    The audio will begin automatically when the host starts broadcasting.
+                </div>
+                <button class="btn" onclick="startListening()">🎧 Ready to Listen</button>
+            </div>
+            
+            <div id="audioControls" style="display: none;">
+                <div class="live-indicator">
+                    <div class="live-dot"></div>
+                    NOW LISTENING
+                </div>
+                
+                <div class="connection-info">
+                    <strong>Status:</strong> <span id="connectionState">Connected</span><br>
+                    <strong>Audio:</strong> <span id="audioStreamInfo">Streaming</span>
+                </div>
+                
+                <div class="volume-control">
+                    <label for="volumeSlider">🔊 Volume Control</label>
+                    <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="70" oninput="adjustVolume(this.value)">
+                    <div class="volume-display" id="volumeDisplay">70%</div>
+                </div>
+                
+                <button class="btn btn-mute" id="muteBtn" onclick="toggleMute()">
+                    🔇 Mute Audio
+                </button>
+            </div>
+            
+            <div id="disconnectedStatus" style="display: none;">
+                <div class="status error">
+                    <strong>Stream Disconnected</strong><br>
+                    The host has ended the stream or connection was lost.
+                </div>
+                <button class="btn btn-secondary" onclick="reconnect()">🔄 Reconnect</button>
+            </div>
+            
+            <audio id="audioPlayer" autoplay playsinline style="display: none;"></audio>
+        </div>
+        
+        <div class="tips">
+            <h4>🎯 For the best listening experience:</h4>
+            <ul>
+                <li><strong>Use headphones</strong> to prevent audio feedback and get better sound quality</li>
+                <li><strong>Keep this tab active</strong> for optimal streaming performance</li>
+                <li><strong>Check your volume</strong> - both device volume and the slider above</li>
+                <li><strong>Stable internet</strong> helps prevent audio dropouts</li>
+                <li><strong>Refresh the page</strong> if you experience connection issues</li>
+            </ul>
+        </div>
+        
+        <div id="statusMessages"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket;
+        let peerConnection;
+        let audioPlayer;
+        let isMuted = false;
+        let isConnected = false;
+        let isListening = false;
+        
+        const roomId = new URLSearchParams(window.location.search).get('room');
+        
+        if (!roomId) {
+            window.location.href = '/';
+        }
+        
+        // Initialize
+        document.getElementById('roomDisplay').textContent = `Room: ${roomId}`;
+        audioPlayer = document.getElementById('audioPlayer');
+        
+        // Connect to server
+        socket = io();
+        
+        socket.on('connect', () => {
+            isConnected = true;
+            socket.emit('join-room', { roomId, role: 'listener' });
+        });
+        
+        socket.on('disconnect', () => {
+            isConnected = false;
+            showDisconnected();
+        });
+        
+        socket.on('listener-joined', () => {
+            showWaitingForHost();
+        });
+        
+        socket.on('host-connected', () => {
+            showWaitingForHost();
+        });
+        
+        socket.on('host-disconnected', () => {
+            showStatus('Host has ended the stream', 'warning');
+            showDisconnected();
+        });
+        
+        socket.on('offer', async ({ from, offer }) => {
+            await handleOffer(from, offer);
+        });
+        
+        socket.on('ice-candidate', async ({ from, candidate }) => {
+            if (peerConnection && candidate) {
+                try {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch (error) {
+                    console.error('Error adding ICE candidate:', error);
+                }
+            }
+        });
+        
+        socket.on('host-muted', () => {
+            showStatus('Host has muted the stream 🔇', 'warning');
+        });
+        
+        socket.on('host-unmuted', () => {
+            showStatus('Host has unmuted the stream 🔊', 'success');
+        });
+        
+        async function handleOffer(hostId, offer) {
+            peerConnection = new RTCPeerConnection({
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ],
+                iceCandidatePoolSize: 10,
+                bundlePolicy: 'max-bundle',
+                rtcpMuxPolicy: 'require'
+            });
+            
+            // Monitor connection state
+            peerConnection.onconnectionstatechange = () => {
+                const state = peerConnection.connectionState;
+                document.getElementById('connectionState').textContent = 
+                    state.charAt(0).toUpperCase() + state.slice(1);
+                
+                if (state === 'connected') {
+                    showStatus('Connected to host! 🎉', 'success');
+                } else if (state === 'failed') {
+                    showStatus('Connection failed. Reconnecting...', 'error');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                }
+            };
+            
+            // Handle incoming audio stream
+            peerConnection.ontrack = (event) => {
+                if (event.track.kind === 'audio' && event.streams[0]) {
+                    audioPlayer.srcObject = event.streams[0];
+                    
+                    const stream = event.streams[0];
+                    const audioTracks = stream.getAudioTracks();
+                    document.getElementById('audioStreamInfo').textContent = 
+                        `${audioTracks.length} audio track${audioTracks.length !== 1 ? 's' : ''} active`;
+                    
+                    // Set initial volume
+                    audioPlayer.volume = 0.7;
+                    
+                    // Try to play automatically
+                    audioPlayer.play().then(() => {
+                        isListening = true;
+                        showAudioControls();
+                        showStatus('🎵 Audio streaming! Enjoy the stream!', 'success');
+                    }).catch((error) => {
+                        showStatus('Click "Ready to Listen" to start audio playback', 'warning');
+                    });
+                }
+            };
+            
+            // Handle ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', {
+                        to: hostId,
+                        candidate: event.candidate
+                    });
+                }
+            };
+            
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                socket.emit('answer', {
+                    to: hostId,
+                    answer: answer
+                });
+                
+            } catch (error) {
+                console.error('Error in handleOffer:', error);
+                showStatus('Error establishing connection: ' + error.message, 'error');
+            }
+        }
+        
+        function startListening() {
+            if (audioPlayer && audioPlayer.srcObject) {
+                audioPlayer.play().then(() => {
+                    isListening = true;
+                    showAudioControls();
+                    showStatus('🎵 Now listening to the stream!', 'success');
+                }).catch((error) => {
+                    showStatus('Unable to start audio playback: ' + error.message, 'error');
+                });
+            } else {
+                showStatus('Waiting for audio stream from host...', 'info');
+            }
+        }
+        
+        function toggleMute() {
+            if (audioPlayer) {
+                audioPlayer.muted = !isMuted;
+                isMuted = !isMuted;
+                
+                const muteBtn = document.getElementById('muteBtn');
+                muteBtn.textContent = isMuted ? '🔊 Unmute Audio' : '🔇 Mute Audio';
+                
+                showStatus(isMuted ? 'Audio muted 🔇' : 'Audio unmuted 🔊', 'info');
+            }
+        }
+        
+        function adjustVolume(value) {
+            if (audioPlayer) {
+                audioPlayer.volume = value / 100;
+                document.getElementById('volumeDisplay').textContent = `${value}%`;
+            }
+        }
+        
+        function reconnect() {
+            window.location.reload();
+        }
+        
+        function showWaitingForHost() {
+            document.getElementById('connectionStatus').style.display = 'none';
+            document.getElementById('waitingForHost').style.display = 'block';
+            document.getElementById('audioControls').style.display = 'none';
+            document.getElementById('disconnectedStatus').style.display = 'none';
+        }
+        
+        function showAudioControls() {
+            document.getElementById('connectionStatus').style.display = 'none';
+            document.getElementById('waitingForHost').style.display = 'none';
+            document.getElementById('audioControls').style.display = 'block';
+            document.getElementById('disconnectedStatus').style.display = 'none';
+        }
+        
+        function showDisconnected() {
+            document.getElementById('connectionStatus').style.display = 'none';
+            document.getElementById('waitingForHost').style.display = 'none';
+            document.getElementById('audioControls').style.display = 'none';
+            document.getElementById('disconnectedStatus').style.display = 'block';
+            
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            
+            isListening = false;
+        }
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessages');
+            const statusElement = document.createElement('div');
+            statusElement.className = `status ${type}`;
+            statusElement.textContent = message;
+            statusDiv.appendChild(statusElement);
+            
+            setTimeout(() => {
+                statusElement.remove();
+            }, 5000);
+        }
+        
+        // Initialize volume control
+        adjustVolume(70);
+    </script>
+</body>
+</html>

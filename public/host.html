@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Host Stream - Live Audio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .room-id {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 1.3em;
+            font-weight: bold;
+            margin: 15px 0;
+            display: inline-block;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .card h3 {
+            margin-bottom: 25px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.4rem;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin: 12px 0;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+        
+        .btn-danger:hover {
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+        }
+        
+        .btn-mute {
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+            width: auto;
+            padding: 12px 24px;
+            margin-left: 12px;
+            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+        }
+        
+        .btn-mute:hover {
+            box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
+        }
+        
+        .status {
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            font-weight: 500;
+            border-left: 4px solid;
+        }
+        
+        .status.success {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            border-left-color: #28a745;
+        }
+        
+        .status.error {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+            border-left-color: #dc3545;
+        }
+        
+        .status.warning {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            color: #856404;
+            border-left-color: #ffc107;
+        }
+        
+        .status.info {
+            background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+            color: #0c5460;
+            border-left-color: #17a2b8;
+        }
+        
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+            margin-bottom: 20px;
+        }
+        
+        .live-dot {
+            width: 10px;
+            height: 10px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        
+        .audio-level {
+            background: #e9ecef;
+            height: 24px;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 20px 0;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .audio-level-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745 0%, #20c997 30%, #ffc107 70%, #fd7e14 90%, #dc3545 100%);
+            width: 0%;
+            transition: width 0.1s ease;
+            border-radius: 12px;
+        }
+        
+        .listeners {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .listener {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 0.95em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid #dee2e6;
+            transition: all 0.3s ease;
+        }
+        
+        .listener:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .listener-dot {
+            width: 10px;
+            height: 10px;
+            background: #28a745;
+            border-radius: 50%;
+            box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.3);
+        }
+        
+        .listener.connecting .listener-dot {
+            background: #ffc107;
+            box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.3);
+            animation: pulse 1s infinite;
+        }
+        
+        .listener.failed .listener-dot {
+            background: #dc3545;
+            box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.3);
+        }
+        
+        .share-section {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+            border: 1px solid #dee2e6;
+        }
+        
+        .share-url {
+            background: white;
+            border: 2px solid #e9ecef;
+            padding: 16px 20px;
+            border-radius: 10px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.9em;
+            word-break: break-all;
+            margin: 15px 0;
+            transition: border-color 0.3s ease;
+        }
+        
+        .share-url:hover {
+            border-color: #667eea;
+        }
+        
+        .flex {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .audio-method-selector {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border: 1px solid #90caf9;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+        }
+        
+        .method-option {
+            margin: 15px 0;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .method-option:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .method-option.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8f0fe 100%);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+        }
+        
+        .method-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+            color: #333;
+        }
+        
+        .method-desc {
+            font-size: 0.9em;
+            color: #666;
+            line-height: 1.4;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-item {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 0.85em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .flex {
+                flex-direction: column;
+            }
+            
+            .btn-mute {
+                width: 100%;
+                margin-left: 0;
+                margin-top: 10px;
+            }
+            
+            .listeners {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎤 Host Stream</h1>
+            <div class="room-id" id="roomDisplay">Room: LOADING...</div>
+        </div>
+        
+        <div class="card">
+            <h3>🎵 Audio Source</h3>
+            
+            <div class="audio-method-selector">
+                <p style="font-weight: 600; margin-bottom: 15px; color: #333;">Choose your audio source:</p>
+                
+                <div class="method-option" id="screenAudioMethod" onclick="selectMethod('screen')">
+                    <div class="method-title">🖥️ System Audio (Screen Share)</div>
+                    <div class="method-desc">
+                        Capture all system audio including music, videos, and applications.
+                        <br><strong>Remember:</strong> Check "Share system audio" when prompted!
+                    </div>
+                </div>
+                
+                <div class="method-option" id="micMethod" onclick="selectMethod('mic')">
+                    <div class="method-title">🎤 Microphone Input</div>
+                    <div class="method-desc">Use your microphone or virtual audio cable for streaming</div>
+                </div>
+            </div>
+            
+            <div id="streamStatus">
+                <div class="status info">
+                    <strong>Ready to Stream</strong><br>
+                    Select an audio source above, then click Start Streaming to begin broadcasting.
+                </div>
+                
+                <button class="btn" id="startBtn" onclick="startStreaming()" disabled>
+                    🎤 Start Streaming
+                </button>
+            </div>
+            
+            <div id="streamControls" style="display: none;">
+                <div class="live-indicator">
+                    <div class="live-dot"></div>
+                    LIVE STREAMING
+                </div>
+                
+                <div class="audio-level">
+                    <div class="audio-level-bar" id="audioLevelBar"></div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="audioStatus">Active</div>
+                        <div class="stat-label">Audio Status</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="connectionCount">0</div>
+                        <div class="stat-label">Connected</div>
+                    </div>
+                </div>
+                
+                <div class="flex">
+                    <button class="btn btn-danger" onclick="stopStreaming()">
+                        ⏹️ Stop Streaming
+                    </button>
+                    <button class="btn btn-mute" id="muteBtn" onclick="toggleMute()">
+                        🔇 Mute
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3>👥 Listeners (<span id="listenerCount">0</span>)</h3>
+            <div class="listeners" id="listenersList">
+                <div style="color: #666; font-style: italic; text-align: center; padding: 20px;">
+                    No listeners yet. Share your room link to get started! 🎧
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3>📤 Share Your Stream</h3>
+            <div class="share-section">
+                <p style="font-weight: 600; margin-bottom: 15px; color: #333;">
+                    Send this link to your listeners:
+                </p>
+                <div class="share-url" id="shareUrl">Loading...</div>
+                <button class="btn" onclick="copyShareUrl()">
+                    📋 Copy Link
+                </button>
+            </div>
+        </div>
+        
+        <div id="statusMessages"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket;
+        let localStream;
+        let peerConnections = new Map();
+        let audioContext;
+        let analyser;
+        let isMuted = false;
+        let isStreaming = false;
+        let selectedMethod = null;
+        
+        const roomId = new URLSearchParams(window.location.search).get('room');
+        
+        if (!roomId) {
+            window.location.href = '/';
+        }
+        
+        // Initialize
+        document.getElementById('roomDisplay').textContent = `Room: ${roomId}`;
+        document.getElementById('shareUrl').textContent = `${window.location.origin}/listen.html?room=${roomId}`;
+        
+        // Connect to server
+        socket = io();
+        
+        socket.on('connect', () => {
+            socket.emit('join-room', { roomId, role: 'host' });
+        });
+        
+        socket.on('host-joined', () => {
+            showStatus('Connected to room successfully! 🎉', 'success');
+        });
+        
+        socket.on('listener-joined', ({ listenerId }) => {
+            updateListenersList();
+            
+            if (localStream && isStreaming) {
+                createPeerConnection(listenerId);
+            }
+        });
+        
+        socket.on('listener-left', ({ listenerId }) => {
+            if (peerConnections.has(listenerId)) {
+                peerConnections.get(listenerId).close();
+                peerConnections.delete(listenerId);
+            }
+            updateListenersList();
+        });
+        
+        socket.on('listener-count-updated', ({ count }) => {
+            document.getElementById('listenerCount').textContent = count;
+            document.getElementById('connectionCount').textContent = count;
+        });
+        
+        socket.on('answer', async ({ from, answer }) => {
+            const pc = peerConnections.get(from);
+            if (pc && answer) {
+                try {
+                    await pc.setRemoteDescription(new RTCSessionDescription(answer));
+                } catch (error) {
+                    console.error('Error setting remote description:', error);
+                }
+            }
+        });
+        
+        socket.on('ice-candidate', async ({ from, candidate }) => {
+            const pc = peerConnections.get(from);
+            if (pc && candidate) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch (error) {
+                    console.error('Error adding ICE candidate:', error);
+                }
+            }
+        });
+        
+        socket.on('error', ({ message }) => {
+            showStatus(message, 'error');
+        });
+        
+        function selectMethod(method) {
+            selectedMethod = method;
+            
+            // Update UI
+            document.querySelectorAll('.method-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            if (method === 'screen') {
+                document.getElementById('screenAudioMethod').classList.add('selected');
+                showStatus('System audio selected! Perfect for streaming music and videos. 🎵', 'success');
+            } else if (method === 'mic') {
+                document.getElementById('micMethod').classList.add('selected');
+                showStatus('Microphone selected! Great for voice and commentary. 🎤', 'info');
+            }
+            
+            document.getElementById('startBtn').disabled = false;
+        }
+        
+        async function startStreaming() {
+            try {
+                if (selectedMethod === 'screen') {
+                    localStream = await navigator.mediaDevices.getDisplayMedia({
+                        video: {
+                            mediaSource: 'screen',
+                            width: { max: 1 },
+                            height: { max: 1 },
+                            frameRate: { max: 1 }
+                        },
+                        audio: {
+                            echoCancellation: false,
+                            noiseSuppression: false,
+                            autoGainControl: false,
+                            sampleRate: 48000,
+                            channelCount: 2
+                        }
+                    });
+                    
+                    const audioTracks = localStream.getAudioTracks();
+                    const videoTracks = localStream.getVideoTracks();
+                    
+                    if (audioTracks.length === 0) {
+                        localStream.getTracks().forEach(track => track.stop());
+                        throw new Error('No audio captured. Make sure to check "Share system audio" when prompted.');
+                    }
+                    
+                    // Remove video tracks to save bandwidth
+                    videoTracks.forEach(track => {
+                        track.stop();
+                        localStream.removeTrack(track);
+                    });
+                    
+                } else if (selectedMethod === 'mic') {
+                    localStream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: false,
+                            noiseSuppression: false,
+                            autoGainControl: false,
+                            sampleRate: 48000,
+                            channelCount: 2
+                        }
+                    });
+                }
+                
+                isStreaming = true;
+                
+                // Setup audio analysis
+                try {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                        latencyHint: 'interactive',
+                        sampleRate: 48000
+                    });
+                    
+                    const source = audioContext.createMediaStreamSource(localStream);
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 256;
+                    analyser.smoothingTimeConstant = 0.3;
+                    source.connect(analyser);
+                    
+                    monitorAudioLevel();
+                } catch (error) {
+                    console.warn('Audio analysis setup failed:', error);
+                }
+                
+                // Update UI
+                document.getElementById('streamStatus').style.display = 'none';
+                document.getElementById('streamControls').style.display = 'block';
+                document.getElementById('audioStatus').textContent = 'Live';
+                
+                // Clear existing connections and recreate
+                peerConnections.forEach(pc => pc.close());
+                peerConnections.clear();
+                
+                setTimeout(() => {
+                    updateListenersList();
+                }, 1000);
+                
+                showStatus('🎉 Stream started! Your audio is now broadcasting live.', 'success');
+                
+            } catch (error) {
+                console.error('Error starting stream:', error);
+                
+                if (error.name === 'NotAllowedError') {
+                    showStatus('❌ Permission denied. Please allow screen/audio sharing and try again.', 'error');
+                } else if (error.message.includes('No audio captured')) {
+                    showStatus('❌ No audio captured! Make sure to check "Share system audio" when prompted.', 'error');
+                } else {
+                    showStatus('❌ Failed to start stream: ' + error.message, 'error');
+                }
+            }
+        }
+        
+        function stopStreaming() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            
+            peerConnections.forEach(pc => pc.close());
+            peerConnections.clear();
+            
+            isStreaming = false;
+            
+            // Update UI
+            document.getElementById('streamStatus').style.display = 'block';
+            document.getElementById('streamControls').style.display = 'none';
+            
+            showStatus('Stream stopped successfully. 👋', 'warning');
+        }
+        
+        function toggleMute() {
+            if (localStream) {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = isMuted;
+                    isMuted = !isMuted;
+                    
+                    const muteBtn = document.getElementById('muteBtn');
+                    muteBtn.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
+                    
+                    document.getElementById('audioStatus').textContent = isMuted ? 'Muted' : 'Live';
+                    
+                    socket.emit(isMuted ? 'mute-stream' : 'unmute-stream');
+                }
+            }
+        }
+        
+        async function createPeerConnection(listenerId) {
+            const pc = new RTCPeerConnection({
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ],
+                iceCandidatePoolSize: 10,
+                bundlePolicy: 'max-bundle',
+                rtcpMuxPolicy: 'require'
+            });
+            
+            peerConnections.set(listenerId, pc);
+            
+            // Monitor connection state
+            pc.onconnectionstatechange = () => {
+                updateListenersList();
+            };
+            
+            // Add audio tracks
+            if (localStream) {
+                localStream.getAudioTracks().forEach(track => {
+                    const sender = pc.addTrack(track, localStream);
+                    
+                    if (sender.getParameters) {
+                        const params = sender.getParameters();
+                        if (params.encodings && params.encodings.length > 0) {
+                            params.encodings[0].priority = 'high';
+                            params.encodings[0].networkPriority = 'high';
+                            sender.setParameters(params).catch(console.warn);
+                        }
+                    }
+                });
+            }
+            
+            // Handle ICE candidates
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', {
+                        to: listenerId,
+                        candidate: event.candidate
+                    });
+                }
+            };
+            
+            try {
+                const offer = await pc.createOffer({
+                    offerToReceiveAudio: false,
+                    offerToReceiveVideo: false,
+                    voiceActivityDetection: false
+                });
+                
+                await pc.setLocalDescription(offer);
+                
+                socket.emit('offer', {
+                    to: listenerId,
+                    offer: offer
+                });
+                
+            } catch (error) {
+                console.error('Error creating offer:', error);
+            }
+        }
+        
+        function monitorAudioLevel() {
+            if (!analyser) return;
+            
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            
+            function updateLevel() {
+                if (!analyser) return;
+                
+                analyser.getByteFrequencyData(dataArray);
+                const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                const level = (average / 255) * 100;
+                
+                document.getElementById('audioLevelBar').style.width = `${level}%`;
+                
+                if (isStreaming) {
+                    requestAnimationFrame(updateLevel);
+                }
+            }
+            
+            updateLevel();
+        }
+        
+        function updateListenersList() {
+            const count = peerConnections.size;
+            document.getElementById('listenerCount').textContent = count;
+
+            const listenersList = document.getElementById('listenersList');
+
+            if (count === 0) {
+                listenersList.innerHTML = `
+                    <div style="color: #666; font-style: italic; text-align: center; padding: 20px;">
+                        No listeners yet. Share your room link to get started! 🎧
+                    </div>
+                `;
+            } else {
+                listenersList.innerHTML = '';
+                let index = 1;
+                peerConnections.forEach((pc, listenerId) => {
+                    const listenerDiv = document.createElement('div');
+                    listenerDiv.className = 'listener';
+
+                    if (pc.connectionState === 'connecting') {
+                        listenerDiv.classList.add('connecting');
+                    } else if (pc.connectionState === 'failed') {
+                        listenerDiv.classList.add('failed');
+                    }
+
+                    const statusText = pc.connectionState === 'connected' ? 'Connected' :
+                                     pc.connectionState === 'connecting' ? 'Connecting...' : 'Connection Issue';
+
+                    listenerDiv.innerHTML = `
+                        <div class="listener-dot"></div>
+                        <div>
+                            <div style="font-weight: 600;">Listener ${index}</div>
+                            <div style="font-size: 0.8em; color: #666;">${statusText}</div>
+                        </div>
+                    `;
+                    listenersList.appendChild(listenerDiv);
+                    index++;
+                });
+            }
+        }
+        
+        function copyShareUrl() {
+            const shareUrl = document.getElementById('shareUrl').textContent;
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                showStatus('Link copied to clipboard! 📋 Share it with your listeners.', 'success');
+            });
+        }
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessages');
+            const statusElement = document.createElement('div');
+            statusElement.className = `status ${type}`;
+            statusElement.textContent = message;
+            statusDiv.appendChild(statusElement);
+            
+            setTimeout(() => {
+                statusElement.remove();
+            }, 5000);
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopStreaming();
+        });
+        
+        // Update connection info periodically
+        setInterval(() => {
+            if (isStreaming) {
+                updateListenersList();
+            }
+        }, 3000);
+    </script>
+</body>
+</html>
