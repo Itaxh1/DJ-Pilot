@@ -466,6 +466,7 @@
         let isMuted = false;
         let isStreaming = false;
         let selectedMethod = null;
+        let appConfig = null;
         
         const roomId = new URLSearchParams(window.location.search).get('room');
         
@@ -473,72 +474,89 @@
             window.location.href = '/';
         }
         
-        // Initialize
-        document.getElementById('roomDisplay').textContent = `Room: ${roomId}`;
-        document.getElementById('shareUrl').textContent = `${window.location.origin}/listen.html?room=${roomId}`;
-        
-        // Connect to server
-        socket = io();
-        
-        socket.on('connect', () => {
-            socket.emit('join-room', { roomId, role: 'host' });
-        });
-        
-        socket.on('host-joined', () => {
-            showStatus('Connected to room successfully! 🎉', 'success');
-        });
-        
-        socket.on('listener-joined', ({ listenerId }) => {
-            updateListenersList();
+        // Load configuration and initialize
+        async function initialize() {
+            try {
+                const response = await fetch('/api/config');
+                appConfig = await response.json();
+            } catch (error) {
+                console.warn('Could not load config');
+                appConfig = { stunServers: ['stun:stun.l.google.com:19302'] };
+            }
             
-            if (localStream && isStreaming) {
-                createPeerConnection(listenerId);
-            }
-        });
+            document.getElementById('roomDisplay').textContent = `Room: ${roomId}`;
+            
+            const baseUrl = appConfig.domain ? 
+                `${window.location.protocol}//${appConfig.domain}${appConfig.port && appConfig.port !== '80' && appConfig.port !== '443' ? ':' + appConfig.port : ''}` :
+                window.location.origin;
+                
+            document.getElementById('shareUrl').textContent = `${baseUrl}/listen.html?room=${roomId}`;
+            
+            connectToServer();
+        }
         
-        socket.on('listener-left', ({ listenerId }) => {
-            if (peerConnections.has(listenerId)) {
-                peerConnections.get(listenerId).close();
-                peerConnections.delete(listenerId);
-            }
-            updateListenersList();
-        });
-        
-        socket.on('listener-count-updated', ({ count }) => {
-            document.getElementById('listenerCount').textContent = count;
-            document.getElementById('connectionCount').textContent = count;
-        });
-        
-        socket.on('answer', async ({ from, answer }) => {
-            const pc = peerConnections.get(from);
-            if (pc && answer) {
-                try {
-                    await pc.setRemoteDescription(new RTCSessionDescription(answer));
-                } catch (error) {
-                    console.error('Error setting remote description:', error);
+        function connectToServer() {
+            socket = io();
+            
+            socket.on('connect', () => {
+                socket.emit('join-room', { roomId, role: 'host' });
+            });
+            
+            socket.on('host-joined', () => {
+                showStatus('Connected to room successfully! 🎉', 'success');
+            });
+            
+            socket.on('listener-joined', ({ listenerId }) => {
+                updateListenersList();
+                
+                if (localStream && isStreaming) {
+                    createPeerConnection(listenerId);
                 }
-            }
-        });
-        
-        socket.on('ice-candidate', async ({ from, candidate }) => {
-            const pc = peerConnections.get(from);
-            if (pc && candidate) {
-                try {
-                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
-                } catch (error) {
-                    console.error('Error adding ICE candidate:', error);
+            });
+            
+            socket.on('listener-left', ({ listenerId }) => {
+                if (peerConnections.has(listenerId)) {
+                    peerConnections.get(listenerId).close();
+                    peerConnections.delete(listenerId);
                 }
-            }
-        });
-        
-        socket.on('error', ({ message }) => {
-            showStatus(message, 'error');
-        });
+                updateListenersList();
+            });
+            
+            socket.on('listener-count-updated', ({ count }) => {
+                document.getElementById('listenerCount').textContent = count;
+                document.getElementById('connectionCount').textContent = count;
+            });
+            
+            socket.on('answer', async ({ from, answer }) => {
+                const pc = peerConnections.get(from);
+                if (pc && answer) {
+                    try {
+                        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+                    } catch (error) {
+                        console.error('Error setting remote description:', error);
+                    }
+                }
+            });
+            
+            socket.on('ice-candidate', async ({ from, candidate }) => {
+                const pc = peerConnections.get(from);
+                if (pc && candidate) {
+                    try {
+                        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                    } catch (error) {
+                        console.error('Error adding ICE candidate:', error);
+                    }
+                }
+            });
+            
+            socket.on('error', ({ message }) => {
+                showStatus(message, 'error');
+            });
+        }
         
         function selectMethod(method) {
             selectedMethod = method;
             
-            // Update UI
             document.querySelectorAll('.method-option').forEach(el => {
                 el.classList.remove('selected');
             });
@@ -581,7 +599,6 @@
                         throw new Error('No audio captured. Make sure to check "Share system audio" when prompted.');
                     }
                     
-                    // Remove video tracks to save bandwidth
                     videoTracks.forEach(track => {
                         track.stop();
                         localStream.removeTrack(track);
@@ -663,7 +680,6 @@
             
             isStreaming = false;
             
-            // Update UI
             document.getElementById('streamStatus').style.display = 'block';
             document.getElementById('streamControls').style.display = 'none';
             
@@ -688,11 +704,12 @@
         }
         
         async function createPeerConnection(listenerId) {
+            const iceServers = appConfig.stunServers ? 
+                appConfig.stunServers.map(url => ({ urls: url })) :
+                [{ urls: 'stun:stun.l.google.com:19302' }];
+                
             const pc = new RTCPeerConnection({
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
-                ],
+                iceServers: iceServers,
                 iceCandidatePoolSize: 10,
                 bundlePolicy: 'max-bundle',
                 rtcpMuxPolicy: 'require'
@@ -700,12 +717,10 @@
             
             peerConnections.set(listenerId, pc);
             
-            // Monitor connection state
             pc.onconnectionstatechange = () => {
                 updateListenersList();
             };
             
-            // Add audio tracks
             if (localStream) {
                 localStream.getAudioTracks().forEach(track => {
                     const sender = pc.addTrack(track, localStream);
@@ -721,7 +736,6 @@
                 });
             }
             
-            // Handle ICE candidates
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
                     socket.emit('ice-candidate', {
@@ -843,6 +857,9 @@
                 updateListenersList();
             }
         }, 3000);
+        
+        // Initialize the app
+        initialize();
     </script>
 </body>
 </html>

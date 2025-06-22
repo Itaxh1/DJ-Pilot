@@ -1,211 +1,225 @@
-# Live Audio Streaming Backend
+# LiveStream Audio
 
-A Node.js backend server for real-time audio streaming using WebRTC and Socket.io. Stream system audio from your laptop to multiple listeners on mobile devices.
+A real-time audio streaming application that allows users to broadcast live audio from their device to multiple listeners using WebRTC and Socket.io.
 
 ## 🚀 Features
 
-- **Real-time Audio Streaming**: WebRTC-based low-latency audio transmission
-- **Multi-listener Support**: Host can broadcast to unlimited listeners
-- **Room Management**: Simple room-based sessions with unique IDs
-- **WebRTC Signaling**: Complete offer/answer/ICE candidate handling
-- **Connection Management**: Automatic cleanup and reconnection handling
-- **REST API**: Room status and management endpoints
+- **Real-time Audio Streaming**: Low-latency audio transmission using WebRTC
+- **Multiple Audio Sources**: Support for system audio (screen share) and microphone input
+- **Multi-listener Support**: Broadcast to unlimited listeners simultaneously
+- **Room-based Sessions**: Simple room management with unique IDs
+- **Responsive Design**: Works on desktop and mobile devices
+- **Production Ready**: Configurable for deployment with environment variables
 
-## 📋 Prerequisites
+## 📋 Quick Start
 
-### Virtual Audio Routing Setup
+### 1. Installation
 
-**Windows:**
-1. Download [VB-Audio Virtual Cable](https://vb-audio.com/Cable/)
-2. Install and restart your computer
-3. Set "CABLE Input" as your default playback device
-4. Your system audio will now route through the virtual cable
-5. When streaming, select "CABLE Output" as microphone
+\`\`\`bash
+# Clone the repository
+git clone <repository-url>
+cd livestream-audio
 
-**macOS:**
-1. Install [BlackHole](https://github.com/ExistentialAudio/BlackHole) (free) or [Loopback](https://rogueamoeba.com/loopback/) (paid)
-2. Create a Multi-Output Device in Audio MIDI Setup
-3. Include both your speakers and BlackHole
-4. Set this as your default output device
-5. When streaming, select BlackHole as microphone
-
-## 🛠️ Installation
-
-1. **Clone and install dependencies:**
-   \`\`\`bash
-   npm install
-   \`\`\`
-
-2. **Start the server:**
-   \`\`\`bash
-   # Development mode with auto-restart
-   npm run dev
-   
-   # Production mode
-   npm start
-   \`\`\`
-
-3. **Access the application:**
-   \`\`\`
-   http://localhost:3000
-   \`\`\`
-
-## 📡 API Endpoints
-
-### GET /api/rooms/:roomId
-Get room information
-\`\`\`json
-{
-  "roomId": "ABC123",
-  "hasHost": true,
-  "listenerCount": 3,
-  "isActive": true
-}
+# Install dependencies
+npm install
 \`\`\`
 
-### POST /api/rooms
-Create a new room
-\`\`\`json
-{
-  "roomId": "XYZ789"
-}
+### 2. Configuration
+
+Copy the example environment file and configure as needed:
+
+\`\`\`bash
+cp .env.example .env
 \`\`\`
 
-### GET /api/rooms
-List all active rooms
-\`\`\`json
-{
-  "rooms": [
-    {
-      "roomId": "ABC123",
-      "listenerCount": 3,
-      "createdAt": "2024-01-01T12:00:00.000Z"
-    }
-  ]
-}
+Edit `.env` with your configuration:
+
+\`\`\`env
+PORT=3000
+HOST=0.0.0.0
+DOMAIN=yourdomain.com  # Optional: for production
+MAX_ROOMS=100
+ROOM_TIMEOUT_HOURS=24
 \`\`\`
 
-## 🔌 Socket.io Events
+### 3. Run the Application
 
-### Client to Server
+\`\`\`bash
+# Development mode with auto-restart
+npm run dev
 
-- `join-room`: Join a room as host or listener
-- `offer`: WebRTC offer from host to listener
-- `answer`: WebRTC answer from listener to host
-- `ice-candidate`: ICE candidate exchange
-- `mute-stream`: Host mutes the stream
-- `unmute-stream`: Host unmutes the stream
+# Production mode
+npm start
+\`\`\`
 
-### Server to Client
+### 4. Access the Application
 
-- `host-joined`: Host successfully joined room
-- `listener-joined`: New listener joined
-- `listener-left`: Listener disconnected
-- `listener-count-updated`: Updated listener count
-- `host-connected`: Host is available
-- `host-disconnected`: Host left the room
-- `host-muted`: Host muted the stream
-- `host-unmuted`: Host unmuted the stream
+- Local: `http://localhost:3000`
+- Network: `http://[your-ip]:3000`
 
 ## 🎵 How to Use
 
-### For Hosts:
-1. Set up virtual audio routing on your laptop
-2. Visit `http://localhost:3000`
-3. Generate or enter a room ID
-4. Click "Start Stream"
-5. Allow microphone access and select virtual audio cable
-6. Share the listener link with others
-7. Start playing audio (Spotify, YouTube, etc.)
+### For Hosts (Broadcasters):
+
+1. **Visit the homepage** and generate or enter a room ID
+2. **Click "Start Broadcasting"** to enter the host interface
+3. **Choose your audio source**:
+   - **System Audio**: Select screen share and check "Share system audio" for music/videos
+   - **Microphone**: Select microphone input for voice streaming
+4. **Start streaming** and share the listener link with your audience
+5. **Monitor listeners** and control your stream (mute/unmute, stop)
 
 ### For Listeners:
-1. Open the shared link on any device
-2. Click "Join Stream"
-3. Click "Ready to Listen" when prompted
-4. Adjust volume as needed
-5. Use headphones for best quality
 
-## 🚀 Deployment
+1. **Open the shared link** or enter the room ID on the homepage
+2. **Click "Join & Listen"** to enter the listener interface
+3. **Click "Ready to Listen"** when prompted (if needed)
+4. **Adjust volume** and enjoy the stream
+5. **Use headphones** for the best experience
+
+## 🔧 Configuration Options
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | Server port |
+| `HOST` | `0.0.0.0` | Server host (use 0.0.0.0 for network access) |
+| `DOMAIN` | `null` | Public domain for production deployment |
+| `CORS_ORIGIN` | `*` | CORS origin policy |
+| `NODE_ENV` | `development` | Environment mode |
+| `MAX_ROOMS` | `100` | Maximum concurrent rooms |
+| `ROOM_TIMEOUT_HOURS` | `24` | Room cleanup timeout |
+| `STUN_SERVERS` | Google STUN | Comma-separated STUN server URLs |
+
+### Production Deployment
+
+For production deployment, set these environment variables:
+
+\`\`\`env
+NODE_ENV=production
+DOMAIN=livestream.yourdomain.com
+CORS_ORIGIN=https://livestream.yourdomain.com
+MAX_ROOMS=500
+ROOM_TIMEOUT_HOURS=12
+\`\`\`
+
+## 🌐 Deployment
 
 ### Heroku
+
 \`\`\`bash
 # Install Heroku CLI and login
 heroku create your-app-name
+heroku config:set NODE_ENV=production
+heroku config:set DOMAIN=your-app-name.herokuapp.com
 git push heroku main
 \`\`\`
 
 ### Railway
-\`\`\`bash
-# Connect your GitHub repo to Railway
-# Set PORT environment variable if needed
-\`\`\`
+
+1. Connect your GitHub repository to Railway
+2. Set environment variables in the Railway dashboard
+3. Deploy automatically on push
 
 ### VPS/Cloud Server
+
 \`\`\`bash
 # Install Node.js and PM2
 npm install -g pm2
-pm2 start server.js --name "audio-stream"
+
+# Set environment variables
+export NODE_ENV=production
+export DOMAIN=yourdomain.com
+
+# Start with PM2
+pm2 start server.js --name "livestream-audio"
 pm2 startup
 pm2 save
 \`\`\`
 
-## 🔧 Configuration
+### Docker
 
-### Environment Variables
-\`\`\`bash
-PORT=3000                    # Server port (default: 3000)
-NODE_ENV=production         # Environment mode
+\`\`\`dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]
 \`\`\`
-
-### STUN Servers
-The app uses Google's public STUN servers:
-- `stun:stun.l.google.com:19302`
-- `stun:stun1.l.google.com:19302`
-
-For production, consider using your own STUN/TURN servers.
-
-## 🐛 Troubleshooting
-
-### Audio Not Working
-- Ensure virtual audio cable is properly configured
-- Check browser permissions for microphone access
-- Verify the correct audio input device is selected
-- Test with headphones to avoid feedback
-
-### Connection Issues
-- Check firewall settings for WebRTC ports
-- Ensure STUN servers are accessible
-- Try refreshing both host and listener pages
-- Check browser console for error messages
-
-### Performance Issues
-- Use wired internet connection for hosting
-- Limit number of concurrent listeners (WebRTC mesh)
-- Consider implementing SFU for scalability
-- Monitor server resources and connection quality
-
-## 📱 Browser Compatibility
-
-- **Chrome/Chromium**: Full support
-- **Firefox**: Full support
-- **Safari**: Full support (iOS 11+)
-- **Edge**: Full support
 
 ## 🔒 Security Considerations
 
-- Rooms are not password protected
-- Use HTTPS in production for WebRTC
-- Implement rate limiting for room creation
-- Consider adding authentication for sensitive use cases
+- Rooms are not password protected by default
+- Use HTTPS in production for WebRTC functionality
+- Configure CORS_ORIGIN for production deployments
+- Consider implementing rate limiting for room creation
+- Monitor server resources and connection limits
 
-## 📈 Scaling
+## 🛠️ Technical Details
 
-For high-scale deployments:
-- Implement SFU (Selective Forwarding Unit)
-- Use Redis for session management
-- Add load balancing for multiple server instances
-- Monitor bandwidth and connection quality
+### Architecture
+
+- **Frontend**: Vanilla HTML/CSS/JavaScript with modern browser APIs
+- **Backend**: Node.js with Express and Socket.io
+- **Real-time Communication**: WebRTC for peer-to-peer audio streaming
+- **Signaling**: Socket.io for WebRTC signaling and room management
+
+### Browser Compatibility
+
+- **Chrome/Chromium**: Full support ✅
+- **Firefox**: Full support ✅
+- **Safari**: Full support (iOS 11+) ✅
+- **Edge**: Full support ✅
+
+### Audio Quality
+
+- **Sample Rate**: 48kHz
+- **Channels**: Stereo (2 channels)
+- **Codec**: Browser-dependent (typically Opus)
+- **Latency**: ~100-300ms depending on network conditions
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**No Audio Streaming:**
+- Ensure "Share system audio" is checked when using screen share
+- Verify microphone permissions are granted
+- Check that the correct audio input device is selected
+
+**Connection Issues:**
+- Verify firewall settings allow WebRTC traffic
+- Ensure STUN servers are accessible
+- Try refreshing both host and listener pages
+
+**Performance Issues:**
+- Use wired internet connection for hosting
+- Limit number of concurrent listeners for mesh topology
+- Monitor server resources and network bandwidth
+
+### Debug Mode
+
+The application includes comprehensive error handling and status messages. Check the browser console for detailed error information.
 
 ## 📄 License
 
-MIT License - feel free to use for personal and commercial projects.
+MIT License - see LICENSE file for details.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📞 Support
+
+For issues and questions:
+- Check the troubleshooting section
+- Review browser console for errors
+- Ensure all dependencies are installed correctly
+- Verify environment configuration

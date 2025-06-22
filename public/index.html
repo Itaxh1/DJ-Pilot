@@ -312,9 +312,36 @@
     </div>
 
     <script>
-        // Get current host for network access
-        const currentHost = window.location.hostname;
-        const currentPort = window.location.port || '3000';
+        let appConfig = null;
+        
+        // Load app configuration
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                appConfig = await response.json();
+                updateUI();
+            } catch (error) {
+                console.warn('Could not load config, using defaults');
+                appConfig = {
+                    domain: window.location.hostname,
+                    port: window.location.port || '3000'
+                };
+                updateUI();
+            }
+        }
+        
+        function updateUI() {
+            // Show network info if available
+            if (appConfig.domain && appConfig.domain !== 'localhost') {
+                const networkInfo = document.createElement('div');
+                networkInfo.className = 'network-info';
+                networkInfo.innerHTML = `
+                    <strong>🌐 Server Ready!</strong><br>
+                    Access URL: <code>${appConfig.domain}${appConfig.port !== '80' && appConfig.port !== '443' ? ':' + appConfig.port : ''}</code>
+                `;
+                document.getElementById('status').appendChild(networkInfo);
+            }
+        }
         
         function generateRoomId() {
             const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -342,9 +369,13 @@
         
         function showStatus(message, type) {
             const statusDiv = document.getElementById('status');
-            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+            const statusElement = document.createElement('div');
+            statusElement.className = `status ${type}`;
+            statusElement.textContent = message;
+            statusDiv.appendChild(statusElement);
+            
             setTimeout(() => {
-                statusDiv.innerHTML = '';
+                statusElement.remove();
             }, 5000);
         }
         
@@ -357,34 +388,8 @@
             document.getElementById('hostRoomId').value = this.value;
         });
         
-        // Show network info if not localhost
-        if (currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
-            const networkInfo = document.createElement('div');
-            networkInfo.className = 'network-info';
-            networkInfo.innerHTML = `
-                <strong>🌐 Network Access Active!</strong><br>
-                Other devices can access this server at: <code>${currentHost}:${currentPort}</code>
-            `;
-            document.getElementById('status').appendChild(networkInfo);
-        }
-        
-        // Test server connection
-        fetch('/api/health')
-            .then(response => response.json())
-            .then(data => {
-                if (data.localIP && data.localIP !== 'localhost') {
-                    const networkInfo = document.createElement('div');
-                    networkInfo.className = 'network-info';
-                    networkInfo.innerHTML = `
-                        <strong>📡 Server Ready!</strong><br>
-                        Local network access: <code>${data.localIP}:${currentPort}</code>
-                    `;
-                    document.getElementById('status').appendChild(networkInfo);
-                }
-            })
-            .catch(error => {
-                console.warn('Server connection test failed:', error);
-            });
+        // Initialize
+        loadConfig();
     </script>
 </body>
 </html>
